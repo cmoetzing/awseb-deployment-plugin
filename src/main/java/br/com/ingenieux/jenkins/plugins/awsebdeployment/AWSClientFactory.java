@@ -26,7 +26,6 @@ import com.cloudbees.jenkins.plugins.awscredentials.AmazonWebServicesCredentials
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
-import hudson.ProxyConfiguration;
 import hudson.security.ACL;
 import jenkins.model.Jenkins;
 import org.apache.commons.lang.reflect.ConstructorUtils;
@@ -56,28 +55,34 @@ public class AWSClientFactory implements Constants {
         this.region = region.toLowerCase();
     }
 
-    private static AWSClientFactory getClientFactory(AWSCredentialsProvider provider,
-                                                     String awsRegion) {
+    public static AWSClientFactory getClientFactory(AWSCredentialsProvider provider, String awsRegion,
+                                                    String proxyHost, int proxyPort,
+                                                    String proxyUser, String proxyPassword) {
         ClientConfiguration clientConfig = new ClientConfiguration();
 
-        Jenkins jenkins = Jenkins.get();
-
-        if (jenkins.proxy != null) {
-            ProxyConfiguration proxyConfig = jenkins.proxy;
-            clientConfig.setProxyHost(proxyConfig.name);
-            clientConfig.setProxyPort(proxyConfig.port);
-            if (proxyConfig.getUserName() != null) {
-                clientConfig.setProxyUsername(proxyConfig.getUserName());
-                clientConfig.setProxyPassword(proxyConfig.getPassword());
+        if (proxyHost != null) {
+            clientConfig.setProxyHost(proxyHost);
+            clientConfig.setProxyPort(proxyPort);
+            if (proxyUser != null) {
+                clientConfig.setProxyUsername(proxyUser);
+                clientConfig.setProxyPassword(proxyPassword);
             }
         }
 
+        return getClientFactory(provider,awsRegion, clientConfig);
+    }
+
+    public static AWSClientFactory getClientFactory(AWSCredentialsProvider provider, String awsRegion) {
+        return getClientFactory(provider,awsRegion, new ClientConfiguration());
+    }
+
+    private static AWSClientFactory getClientFactory(AWSCredentialsProvider provider, String awsRegion, ClientConfiguration clientConfig) {
         clientConfig.setUserAgentPrefix("ingenieux CloudButler/" + Utils.getVersion());
 
         return new AWSClientFactory(provider, clientConfig, awsRegion);
     }
 
-    public static AWSClientFactory getClientFactory(String credentialsId, String awsRegion)
+    protected static AWSClientFactory getClientFactory(String credentialsId, String awsRegion)
             throws CredentialNotFoundException {
         AWSCredentialsProvider provider = new DefaultAWSCredentialsProviderChain();
 
@@ -88,7 +93,7 @@ public class AWSClientFactory implements Constants {
         return getClientFactory(provider, awsRegion);
     }
 
-    private static AmazonWebServicesCredentials lookupNamedCredential(String credentialsId)
+    protected static AmazonWebServicesCredentials lookupNamedCredential(String credentialsId)
             throws CredentialNotFoundException {
         final Jenkins jenkins = Jenkins.getInstanceOrNull();
 
